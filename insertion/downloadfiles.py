@@ -22,7 +22,7 @@ def sanitize_filename(name):
     sanitized = re.sub(r'\s+', ' ', sanitized)
     return sanitized
 
-def download_documents(driver, query, amount=5):
+def get_documents(driver, query, amount=5):
     final = []
     documents = [
         "filetype:txt OR filetype:pdf",
@@ -47,7 +47,7 @@ def download_documents(driver, query, amount=5):
             return final
     return final
 
-def download_images(driver, query, amount=5):
+def get_images(driver, query, amount=5):
     driver.get(f"https://www.pexels.com/search/{query}/")
 
     time.sleep(3)
@@ -60,7 +60,7 @@ def download_images(driver, query, amount=5):
 
     return images[:amount]
 
-def download_audio(query, amount=2):
+def get_audio(query, amount=2):
     downloaded_sizes = []
     url = []
 
@@ -90,9 +90,10 @@ def download_audio(query, amount=2):
 
     return url, sum(downloaded_sizes)
 
-def download_videos(driver, query, amount=2):
+def get_videos(driver, query, amount=2):
     downloaded_sizes = []
     urls = []
+    filenames = []
     def download_helper(url):
         def progress_hook(d):
             if d['status'] == 'finished':
@@ -104,7 +105,7 @@ def download_videos(driver, query, amount=2):
             # FORCE MP4 OUTPUT
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'merge_output_format': 'mp4',
-            'outtmpl': 'downloads/%(title)s.%(ext)s',
+            'outtmpl': 'videos/%(title)s.%(ext)s',
 
             'cookies_from_browser': ('chrome',),
             'extractor_args': {'youtube': {'player_client': ['android']}},
@@ -153,23 +154,18 @@ def download_videos(driver, query, amount=2):
     for video in video_elements[:amount*2]:
         url = video.get_attribute("href")
         if url and "youtube.com/watch" in url:
-            urls.append(url)  # Clean URL parameters
+            urls.append(url)
 
     return urls, sum(downloaded_sizes)
 
 def download_file(driver, query, amount):
 
-    # documents = download_documents(driver, query)
-    # images = download_images(driver, query)
-    audio = download_audio(query)[0]
-    videos = download_videos(driver, query)[0]
+    documents = get_documents(driver, query)
+    images = get_images(driver, query)
+    audios = get_audio(query)[0]
+    videos = get_videos(driver, query)[0]
 
-    final = videos + audio
-    for i, link in enumerate(videos):
-        print(i, link)
 
-    for i, link in enumerate(audio):
-        print(i, link)
 
 
 def initialize_browser():
