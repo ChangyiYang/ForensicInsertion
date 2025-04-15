@@ -1,4 +1,4 @@
-import re
+from urllib.parse import urlparse, unquote
 import random
 import os
 from selenium import webdriver
@@ -7,30 +7,39 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
-from googlesearch import search
+import requests
 import yt_dlp
 import time
 
 
+def extract_filename(url):
+    path = urlparse(url).path
+    filename = os.path.basename(path)
+    return unquote(filename)
 
-max_size = 18 * 1024 # 18gb
-current_size = 0
+def download_from_url(url, filename):
+    try:
+        with requests.get(url, stream=True) as r:
+            r.raise_for_status()
+            with open(filename, 'wb') as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+        return True
 
-def sanitize_filename(name):
-    sanitized = re.sub(r'[^a-zA-Z0-9 ._-]', '_', name)
-    sanitized = sanitized.strip()
-    sanitized = re.sub(r'\s+', ' ', sanitized)
-    return sanitized
+    except Exception:
+        return False
 
 def get_documents(driver, query, amount=5):
-    final = []
-    documents = [
+    documents = []
+    filenames = []
+    documents_query = [
         "filetype:txt OR filetype:pdf",
         "filetype:doc OR filetype:docx",
         "filetype:xls OR filetype:xlsx",
         "filetype:ppt OR filetype:pptx",
     ]
-    for extension in documents:
+    for extension in documents_query:
         dork_query = f'{extension} {query}'
         try:
             driver.get("https://duckduckgo.com/?q=" + dork_query.replace(" ", "+"))
@@ -42,10 +51,23 @@ def get_documents(driver, query, amount=5):
             for link in links[:amount*2]:
                 href = link.get_attribute("href")
                 if href and not href.startswith("https://duckduckgo.com"):
-                    final.append(href)
+                    documents.append(href)
         except Exception:
-            return final
-    return final
+            return documents
+
+    random.shuffle(documents)
+
+    count = 0
+    for url in documents:
+        name = extract_filename(url)
+        filenames.append(name)
+        path = f"../to_upload/documents/{name}"
+        if download_from_url(url, path):
+            count += 1
+        if count >= amount:
+            break
+
+    return documents, filenames
 
 def get_images(driver, query, amount=5):
     driver.get(f"https://www.pexels.com/search/{query}/")
@@ -55,32 +77,44 @@ def get_images(driver, query, amount=5):
     soup = BeautifulSoup(driver.page_source, 'html.parser')
 
     images = []
+    filenames = []
     for img in soup.select('img[src*="pexels.com/photos"]'):
         images.append(img['src'].split('?')[0])
 
-    return images[:amount]
+    random.shuffle(images)
+    images = images[:amount]
+
+    count = 0
+    for url in images:
+        name = extract_filename(url)
+        filenames.append(name)
+        path = f"../to_upload/images/{name}"
+        if download_from_url(url, path):
+            count += 1
+        if count >= amount:
+            break
+
+    return images, filenames
 
 def get_audio(query, amount=2):
-    downloaded_sizes = []
     url = []
+    filenames = []
 
     def progress_hook(d):
         if d['status'] == 'finished':
-            # Size is in bytes, convert to MB
-            file_size_mb = d.get('total_bytes', d.get('total_bytes_estimate', 0)) / (1024 * 1024)
-            downloaded_sizes.append(file_size_mb)
+            filenames.append(d.get('filename'))
             url.append(d['info_dict']['webpage_url'])
 
     ydl_opts = {
         'format': 'bestaudio/best',
         'progress_hooks': [progress_hook],
-        'outtmpl': 'downloads/%(title)s.%(ext)s',
+        'outtmpl': '../to_upload/audios/%(title)s.%(ext)s',
         'postprocessors': [{
             'key': 'FFmpegExtractAudio',
             'preferredcodec': 'mp3',
             'preferredquality': '192',
         }],
-        'quiet': False
+        'quiet': True
     }
 
     os.makedirs("downloads", exist_ok=True)
@@ -88,24 +122,21 @@ def get_audio(query, amount=2):
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
         ydl.download([f"ytsearch{amount}:{query} sound effect"])
 
-    return url, sum(downloaded_sizes)
+    return url, filenames
 
 def get_videos(driver, query, amount=2):
-    downloaded_sizes = []
     urls = []
     filenames = []
     def download_helper(url):
         def progress_hook(d):
             if d['status'] == 'finished':
-                total_bytes = d.get('total_bytes') or d.get('total_bytes_estimate') or 0
-                size_mb = total_bytes / (1024 * 1024)
-                downloaded_sizes.append(size_mb)
+                filenames.append(d.get('filename'))
 
         ydl_opts = {
             # FORCE MP4 OUTPUT
             'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
             'merge_output_format': 'mp4',
-            'outtmpl': 'videos/%(title)s.%(ext)s',
+            'outtmpl': '../to_upload/videos/%(title)s.%(ext)s',
 
             'cookies_from_browser': ('chrome',),
             'extractor_args': {'youtube': {'player_client': ['android']}},
@@ -116,6 +147,7 @@ def get_videos(driver, query, amount=2):
                 'preferedformat': 'mp4',  # Double conversion ensures MP4
             }],
             'progress_hooks': [progress_hook],
+            'quiet': True
         }
         try:
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -142,11 +174,9 @@ def get_videos(driver, query, amount=2):
     search_box.submit()
     time.sleep(random.uniform(2, 4))
 
-    # Scroll to load more results
     driver.execute_script("window.scrollTo(0, 500)")
     time.sleep(random.uniform(1, 2))
 
-    # Extract video links
     video_elements = WebDriverWait(driver, 10).until(
         EC.presence_of_all_elements_located((By.CSS_SELECTOR, "ytd-video-renderer #video-title"))
     )
@@ -156,17 +186,27 @@ def get_videos(driver, query, amount=2):
         if url and "youtube.com/watch" in url:
             urls.append(url)
 
-    return urls, sum(downloaded_sizes)
+    random.shuffle(urls)
+    urls = urls[:amount]
 
-def download_file(driver, query, amount):
+    for url in urls:
+        download_helper(url)
 
-    documents = get_documents(driver, query)
-    images = get_images(driver, query)
-    audios = get_audio(query)[0]
-    videos = get_videos(driver, query)[0]
+    return urls, filenames
 
+def download_file(driver, query, filetypes):
 
+    pool = [
+        get_documents(driver, query),
+        get_images(driver, query),
+        get_audio(query),
+        get_videos(driver, query)
+    ]
 
+    for i, values in enumerate(pool):
+        print(i, filetypes[i])
+        for [url, name] in values:
+            print(name, url)
 
 def initialize_browser():
     options = webdriver.ChromeOptions()
@@ -174,14 +214,25 @@ def initialize_browser():
     driver = webdriver.Chrome(options=options)
     return driver
 
+def reset_uploads(filetypes):
+    for type in filetypes:
+        os.system(f"rm ../to_upload/{type}/*")
+
 if __name__ == "__main__":
-    browser = initialize_browser()
 
     # search_terms = " ".join(sys.argv[1:-1])
+    browser = initialize_browser()
+
+    filetypes = ["documents", "images", "audios", "videos"]
 
 
-    search_terms = "pets"
-    download_file(browser, search_terms, 5)
 
 
-    browser.quit()
+    search_terms = "changyi yang"
+    download_file(browser, search_terms, filetypes)
+
+    # reset_uploads(filetypes)
+
+
+
+    # browser.quit()
