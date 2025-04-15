@@ -16,7 +16,8 @@ This script allows you to insert a local file into a `.dd` disk image (typically
 - Root privileges (required for mounting and file operations)
 - `partx` (used to parse partition layout)
 - `mount`, `umount`, and `touch` utilities
-
+- `ffmpeg` package for audio (sudo apt install ffmpeg or )
+- `webdriver-manager install` for selenium
 ## Usage
 
 ```bash

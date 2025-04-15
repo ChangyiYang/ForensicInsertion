@@ -1,3 +1,6 @@
 windows/windows.dd
 backup
-password.txt
+/project/
+project/
+*.pyc
+__pycache__/
