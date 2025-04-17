@@ -4,3 +4,4 @@ backup
 project/
 *.pyc
 __pycache__/
+.env

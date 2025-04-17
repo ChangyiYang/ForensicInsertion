@@ -1,6 +1,7 @@
-beautifulsoup4
-googlesearch-python
-selenium
-yt-dlp
-requests
-webdriver-manager
+beautifulsoup4==4.13.4
+langchain==0.3.23
+langchain_openai==0.3.14
+python-dotenv==1.1.0
+Requests==2.32.3
+selenium==4.24.0
+yt_dlp==2025.3.31
