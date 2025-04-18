@@ -37,8 +37,8 @@ def main():
     
     if verbose:
         print("Generated search queries:")
-        for q in search_queries:
-            print(f"  - {q}")
+        for q, words in search_queries.items():
+            print(f"  - {q} : {', '.join(words)}")
 
     # Step 3: Download files for each query
     print("Downloading files...")
