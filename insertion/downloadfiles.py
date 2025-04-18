@@ -12,6 +12,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 import yt_dlp
 import tempfile
+from youtube_downloader import download_youtube
 
 # Base upload directory
 BASE_UPLOAD_DIR = "./to_upload"
@@ -19,7 +20,7 @@ BASE_UPLOAD_DIR = "./to_upload"
 download_records = []
 
 
-def extract_filename(url, file_type, base_filename = None):
+def extract_filename(url, file_type, base_filename=None):
     # Valid image extensions
     image_exts = {
         "jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "tif", "svg", "ico", "heic", "psd", "raw"
@@ -45,7 +46,7 @@ def extract_filename(url, file_type, base_filename = None):
 
     fallback = f"{base_filename}_{extract_filename.counter[file_type]}"
     if file_type == "image":
-        fallback+= ".jpg"
+        fallback += ".jpg"
     extract_filename.counter[file_type] += 1
     return fallback
 
@@ -59,6 +60,7 @@ def split_list(elements):
     audio = elements[split_point:]  # Remaining 1/3
 
     return videos, audio
+
 
 def download_from_url(url, filename):
     try:
@@ -79,41 +81,6 @@ def download_from_url(url, filename):
         return False
 
 
-def download_youtube(url, type='video'):
-    try:
-        if type == 'audio':
-            ydl_opts = {
-                'format': 'bestaudio/best',  # Best audio quality available
-                'outtmpl': os.path.join(BASE_UPLOAD_DIR, '%(title)s.mp3'),
-                'quiet': True,
-                'no_warnings': True,
-                'postprocessors': [{
-                    'key': 'FFmpegExtractAudio',
-                    'preferredcodec': 'mp3',
-                    'preferredquality': '192',
-                }],
-                'extract_audio': True,  # Only keep the audio
-            }
-        else:  # video
-            ydl_opts = {
-                'format': 'worst[ext=mp4]',  # Worst quality that's already in mp4 format
-                'outtmpl': os.path.join(BASE_UPLOAD_DIR, '%(title)s.%(ext)s'),
-                'quiet': True,
-                'no_warnings': True,
-            }
-
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(url, download=True)
-            filename = ydl.prepare_filename(info)
-            if type == 'audio':
-                filename = filename.replace('.webm', '.mp3').replace('.m4a', '.mp3')
-            print(f"Downloaded: {os.path.basename(filename)}")
-            return filename
-
-    except Exception as e:
-        print(f"Error downloading {url}: {e}")
-        return None
-
 def get_documents(driver, query, amount=3):
     documents = []
     filenames = []
@@ -132,7 +99,7 @@ def get_documents(driver, query, amount=3):
             )
 
             links = driver.find_elements(By.CSS_SELECTOR, "[data-testid='result-title-a']")
-            for link in links[:amount*2]:
+            for link in links[:amount * 2]:
                 href = link.get_attribute("href")
                 if href and not href.startswith("https://duckduckgo.com"):
                     documents.append(href)
@@ -152,6 +119,7 @@ def get_documents(driver, query, amount=3):
             break
 
     return documents, filenames
+
 
 def get_images(driver, query, amount=3):
     origin_query = query
@@ -196,8 +164,8 @@ def get_images(driver, query, amount=3):
     print(f"Downloaded {count} images.")
     return images, filenames
 
-def get_videos_and_audio(driver, query, amount=3):
 
+def get_videos_and_audio(driver, query, amount=3):
     filenames = []
 
     driver.get("https://duckduckgo.com/?q=site%3Ayoutube.com+" + query.replace(" ", "+") + "&iax=videos&ia=videos")
@@ -216,9 +184,8 @@ def get_videos_and_audio(driver, query, amount=3):
     video_urls, audio_urls = split_list(pool[:3])
 
     for url in audio_urls:
-        download_youtube(url, "audio")
+        download_youtube(url, "audios")
         time.sleep(random.uniform(1, 3))  # Be polite with delays
-
 
     for url in video_urls:
         download_youtube(url)
@@ -236,16 +203,20 @@ def download_file(query_dict):
             if not queries:
                 continue  # skip empty list
 
-            if category == "documents":
-                for query in queries:
-                    get_documents(driver, query)
-            
-            elif category == "images":
-                for query in queries:
-                    get_images(driver, query)
+            # if category == "documents":
+            #     for query in queries:
+            #         get_documents(driver, query)
+            #
+            # elif category == "images":
+            #     for query in queries:
+            #         get_images(driver, query)
 
+<<<<<<< HEAD
 
             elif category == "videos" or category == "audios":
+=======
+            elif category == "audios" or category == "videos":
+>>>>>>> 365845fa738b443a558cefd36980fbc7636669ed
                 for query in queries:
                     get_videos_and_audio(driver, query)
 
@@ -271,6 +242,7 @@ def initialize_browser():
     driver = webdriver.Chrome(options=options)
     return driver
 
+
 def reset_uploads(filetypes):
     for filetype in filetypes:
         folder = os.path.join(BASE_UPLOAD_DIR, filetype)
@@ -278,9 +250,10 @@ def reset_uploads(filetypes):
             shutil.rmtree(folder)
             os.makedirs(folder)
 
+
 if __name__ == "__main__":
     filetypes = ["documents", "images", "audios", "videos"]
-    
+
     # Reset the upload folders
     reset_uploads(filetypes)
 
