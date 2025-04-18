@@ -239,12 +239,13 @@ def download_file(query_dict):
             if category == "documents":
                 for query in queries:
                     get_documents(driver, query)
-
+            
             elif category == "images":
                 for query in queries:
                     get_images(driver, query)
 
-            elif category == "videos" and category == "audio":
+
+            elif category == "videos" or category == "audio":
                 for query in queries:
                     get_videos_and_audio(driver, query)
 
@@ -279,4 +280,24 @@ def reset_uploads(filetypes):
 
 if __name__ == "__main__":
     filetypes = ["documents", "images", "audios", "videos"]
+    
+    # Reset the upload folders
+    reset_uploads(filetypes)
+
+    # Example search queries
+    example_queries = {
+        "documents": ["climate change effects", "global warming report"],
+        "images": ["polar bear on melting ice", "glacier retreat photos"],
+        "audios": ["climate speech recording"],
+        "videos": ["arctic wildlife documentary"]
+    }
+
+    # Download files based on example queries
+    downloaded_files = download_file(example_queries)
+
+    print("\nDownloaded Files:")
+    for f in downloaded_files:
+        print(f" - {f}")
+
+
 
