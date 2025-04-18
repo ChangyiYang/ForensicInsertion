@@ -211,7 +211,16 @@ def download_file(query_dict):
             #     for query in queries:
             #         get_images(driver, query)
 
+<<<<<<< HEAD
+<<<<<<< HEAD
+
+            elif category == "videos" or category == "audios":
+=======
             elif category == "audios" or category == "videos":
+>>>>>>> 365845fa738b443a558cefd36980fbc7636669ed
+=======
+            elif category == "audios" or category == "videos":
+>>>>>>> 365845fa738b443a558cefd36980fbc7636669ed
                 for query in queries:
                     get_videos_and_audio(driver, query)
 
