@@ -50,6 +50,16 @@ def extract_filename(url, file_type, base_filename = None):
     return fallback
 
 
+def split_list(elements):
+    # Calculate the split point (2/3 of the list)
+    split_point = int(len(elements) * 2 / 3)
+
+    # Split the list
+    videos = elements[:split_point]  # First 2/3
+    audio = elements[split_point:]  # Remaining 1/3
+
+    return videos, audio
+
 def download_from_url(url, filename):
     try:
         os.makedirs(os.path.dirname(filename), exist_ok=True)
@@ -67,6 +77,42 @@ def download_from_url(url, filename):
     except Exception as e:
         # print(f"Failed to download: {url}, Error: {e}")
         return False
+
+
+def download_youtube(url, type='video'):
+    try:
+        if type == 'audio':
+            ydl_opts = {
+                'format': 'bestaudio/best',  # Best audio quality available
+                'outtmpl': os.path.join(BASE_UPLOAD_DIR, '%(title)s.mp3'),
+                'quiet': True,
+                'no_warnings': True,
+                'postprocessors': [{
+                    'key': 'FFmpegExtractAudio',
+                    'preferredcodec': 'mp3',
+                    'preferredquality': '192',
+                }],
+                'extract_audio': True,  # Only keep the audio
+            }
+        else:  # video
+            ydl_opts = {
+                'format': 'worst[ext=mp4]',  # Worst quality that's already in mp4 format
+                'outtmpl': os.path.join(BASE_UPLOAD_DIR, '%(title)s.%(ext)s'),
+                'quiet': True,
+                'no_warnings': True,
+            }
+
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+            filename = ydl.prepare_filename(info)
+            if type == 'audio':
+                filename = filename.replace('.webm', '.mp3').replace('.m4a', '.mp3')
+            print(f"Downloaded: {os.path.basename(filename)}")
+            return filename
+
+    except Exception as e:
+        print(f"Error downloading {url}: {e}")
+        return None
 
 def get_documents(driver, query, amount=3):
     documents = []
@@ -150,52 +196,9 @@ def get_images(driver, query, amount=3):
     print(f"Downloaded {count} images.")
     return images, filenames
 
-def get_audio(query, amount=2):
-    url = []
+def get_videos_and_audio(driver, query, amount=3):
+
     filenames = []
-
-    def progress_hook(d):
-        if d['status'] == 'finished':
-            filenames.append(d.get('filename'))
-            url.append(d['info_dict']['webpage_url'])
-
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'progress_hooks': [progress_hook],
-        'outtmpl': os.path.join(BASE_UPLOAD_DIR, "audios", "%(title)s.%(ext)s"),
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': 'mp3',
-            'preferredquality': '192',
-        }],
-        'quiet': True
-    }
-
-    os.makedirs("downloads", exist_ok=True)
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        ydl.download([f"ytsearch{amount}:{query} sound effect"])
-
-    return url, filenames
-
-def get_videos(driver, query, amount=3):
-    urls = []
-    filenames = []
-
-    def download_video(url):
-        try:
-            ydl_opts = {
-                'format': 'worst',
-                'outtmpl': os.path.join(BASE_UPLOAD_DIR, '%(title)s.%(ext)s'),
-                'quiet': True,
-                'no_warnings': True,
-            }
-
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(url, download=True)
-                print(f"Downloaded: {info['title']}")
-        except Exception as e:
-            print(f"Error: {e}")
 
     driver.get("https://duckduckgo.com/?q=site%3Ayoutube.com+" + query.replace(" ", "+") + "&iax=videos&ia=videos")
     time.sleep(random.uniform(2, 4))
@@ -203,19 +206,25 @@ def get_videos(driver, query, amount=3):
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight/3)")
     time.sleep(random.uniform(1, 2))
 
-    video_elements = driver.find_elements(By.TAG_NAME, "a")
-    for element in video_elements:
+    pool = []
+    elements = driver.find_elements(By.TAG_NAME, "a")
+    for element in elements:
         url = element.get_attribute("href")
         if url and "youtube.com/watch" in url:
-            urls.append(url)
+            pool.append(url)
 
-    urls = urls[:amount]
+    video_urls, audio_urls = split_list(pool[:10])
 
-    for url in urls:
-        download_video(url)
+    for url in audio_urls:
+        download_youtube(url, "audio")
         time.sleep(random.uniform(1, 3))  # Be polite with delays
 
-    return urls, filenames
+
+    for url in video_urls:
+        download_youtube(url)
+        time.sleep(random.uniform(1, 3))  # Be polite with delays
+
+    return video_urls, audio_urls, filenames
 
 
 def download_file(query_dict):
@@ -235,13 +244,10 @@ def download_file(query_dict):
             #     for query in queries:
             #         get_images(driver, query)
 
-            # elif category == "audios":
-            #     for query in queries:
-            #         get_audio(query)
 
-            elif category == "videos":
+            elif category == "videos/audio":
                 for query in queries:
-                    get_videos(driver, query)
+                    get_videos_and_audio(driver, query)
 
             else:
                 print(f"Unknown category: {category}")
