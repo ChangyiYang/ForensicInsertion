@@ -1,4 +1,4 @@
-from urllib.parse import urlparse, unquote, quote
+from urllib.parse import urlparse, unquote, quote, parse_qs
 import random
 import os
 import time
@@ -18,10 +18,37 @@ BASE_UPLOAD_DIR = "./to_upload"
 
 download_records = []
 
-def extract_filename(url):
+
+def extract_filename(url, file_type):
+    # Valid image extensions
+    image_exts = {
+        "jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "tif", "svg", "ico", "heic", "psd", "raw"
+    }
+
+    # Initialize counter for fallback filenames
+    if not hasattr(extract_filename, "counter"):
+        extract_filename.counter = {}
+
     path = urlparse(url).path
-    filename = os.path.basename(path)
-    return unquote(filename)
+    filename = unquote(os.path.basename(path))
+
+    # Extract file extension if present
+    ext = filename.split('.')[-1].lower() if '.' in filename else None
+
+    # If extension is valid, return the filename
+    if ext in image_exts:
+        return filename
+
+    # Otherwise, generate fallback
+    if file_type not in extract_filename.counter:
+        extract_filename.counter[file_type] = 1
+
+    fallback = f"{file_type}_{extract_filename.counter[file_type]}"
+    if file_type == "image":
+        fallback+= ".jpg"
+    extract_filename.counter[file_type] += 1
+    return fallback
+
 
 def download_from_url(url, filename):
     try:
@@ -70,7 +97,7 @@ def get_documents(driver, query, amount=3):
 
     count = 0
     for url in documents:
-        name = extract_filename(url)
+        name = extract_filename(url, "document")
         filenames.append(name)
         path = os.path.join(BASE_UPLOAD_DIR, "documents", name)
         if download_from_url(url, path):
@@ -81,7 +108,7 @@ def get_documents(driver, query, amount=3):
     return documents, filenames
 
 def get_images(driver, query, amount=3):
-    query = f"https://www.pexels.com/search/{quote(query)}/"
+    query = f"https://duckduckgo.com/?q={quote(query)}&t=h_&iax=images&ia=images"
     print("Searching for images with query:", query)
     driver.get(query)
     time.sleep(3)
@@ -90,8 +117,20 @@ def get_images(driver, query, amount=3):
 
     images = []
     filenames = []
-    for img in soup.select('img[src*="pexels.com/photos"]'):
-        images.append(img['src'].split('?')[0])
+    for img_tag in soup.find_all('img'):
+        src = img_tag.get('src') or img_tag.get('data-src')
+        if src and "external-content.duckduckgo.com/iu/?" in src:
+            if src.startswith("//"):
+                src = "https:" + src
+
+            # Optional: extract original image URL
+            parsed = urlparse(src)
+            qs = parse_qs(parsed.query)
+            original_url = qs.get("u", [None])[0]
+            if original_url:
+                images.append(unquote(original_url))
+            else:
+                images.append(src)  # fallback
 
     print("Got image urls:", images)
 
@@ -100,7 +139,7 @@ def get_images(driver, query, amount=3):
 
     count = 0
     for url in images:
-        name = extract_filename(url)
+        name = extract_filename(url, "image")
         filenames.append(name)
         path = os.path.join(BASE_UPLOAD_DIR, "images", name)
         if download_from_url(url, path):
@@ -210,7 +249,7 @@ def download_file(query):
 
     try:
         pool = [
-            get_documents(driver, query),
+            # get_documents(driver, query),
             get_images(driver, query)
             # get_audio(query),
             # get_videos(driver, query)
@@ -244,5 +283,5 @@ def reset_uploads(filetypes):
 
 if __name__ == "__main__":
     filetypes = ["documents", "images", "audios", "videos"]
-    search_terms = "cat"
+    search_terms = "changyi yang Berkeley California"
     download_file(search_terms)
