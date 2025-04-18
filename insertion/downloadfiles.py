@@ -236,16 +236,15 @@ def download_file(query_dict):
             if not queries:
                 continue  # skip empty list
 
-            # if category == "documents":
-            #     for query in queries:
-            #         get_documents(driver, query)
-            #
-            # elif category == "images":
-            #     for query in queries:
-            #         get_images(driver, query)
+            if category == "documents":
+                for query in queries:
+                    get_documents(driver, query)
 
+            elif category == "images":
+                for query in queries:
+                    get_images(driver, query)
 
-            elif category == "videos/audio":
+            elif category == "videos" and category == "audio":
                 for query in queries:
                     get_videos_and_audio(driver, query)
 
