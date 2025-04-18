@@ -178,70 +178,45 @@ def get_audio(query, amount=2):
 
     return url, filenames
 
-def get_videos(driver, query, amount=2):
+def get_videos(driver, query, amount=3):
     urls = []
     filenames = []
 
-    def download_helper(url):
-        def progress_hook(d):
-            if d['status'] == 'finished':
-                filenames.append(d.get('filename'))
-
-        ydl_opts = {
-            'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
-            'merge_output_format': 'mp4',
-            'outtmpl': os.path.join(BASE_UPLOAD_DIR, "videos", "%(title)s.%(ext)s"),
-            'cookies_from_browser': ('chrome',),
-            'extractor_args': {'youtube': {'player_client': ['android']}},
-            'postprocessors': [{
-                'key': 'FFmpegVideoConvertor',
-                'preferedformat': 'mp4',
-            }],
-            'progress_hooks': [progress_hook],
-            'quiet': True
-        }
+    def download_video(url):
         try:
+            ydl_opts = {
+                'format': 'worst',
+                'outtmpl': os.path.join(BASE_UPLOAD_DIR, '%(title)s.%(ext)s'),
+                'quiet': False,
+                'no_warnings': True,
+            }
+
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 info = ydl.extract_info(url, download=True)
-                final_file = ydl.prepare_filename(info).replace('.webm', '.mp4')
-                print(f"Downloaded: {os.path.basename(final_file)}")
-                return final_file
+                print(f"Downloaded: {info['title']}")
         except Exception as e:
-            print(f"Error: {str(e)}")
-            return None
+            print(f"Error: {e}")
 
-    driver.get("https://www.youtube.com")
-    time.sleep(random.uniform(1, 3))
-
-    search_box = WebDriverWait(driver, 10).until(
-        EC.presence_of_element_located((By.NAME, "search_query"))
-    )
-    for char in query:
-        search_box.send_keys(char)
-        time.sleep(random.uniform(0.1, 0.3))
-
-    search_box.submit()
+    driver.get("https://duckduckgo.com/?q=site%3Ayoutube.com+" + query.replace(" ", "+") + "&iax=videos&ia=videos")
     time.sleep(random.uniform(2, 4))
 
-    driver.execute_script("window.scrollTo(0, 500)")
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight/3)")
     time.sleep(random.uniform(1, 2))
 
-    video_elements = WebDriverWait(driver, 10).until(
-        EC.presence_of_all_elements_located((By.CSS_SELECTOR, "ytd-video-renderer #video-title"))
-    )
-
-    for video in video_elements[:amount*2]:
-        url = video.get_attribute("href")
+    video_elements = driver.find_elements(By.TAG_NAME, "a")
+    for element in video_elements:
+        url = element.get_attribute("href")
         if url and "youtube.com/watch" in url:
             urls.append(url)
 
-    random.shuffle(urls)
     urls = urls[:amount]
 
     for url in urls:
-        download_helper(url)
+        download_video(url)
+        time.sleep(random.uniform(1, 3))  # Be polite with delays
 
     return urls, filenames
+
 
 def download_file(query_dict):
     driver = initialize_browser()
@@ -260,9 +235,9 @@ def download_file(query_dict):
                 for query in queries:
                     get_images(driver, query)
 
-            elif category == "audios":
-                for query in queries:
-                    get_audio(query)
+            # elif category == "audios":
+            #     for query in queries:
+            #         get_audio(query)
 
             elif category == "videos":
                 for query in queries:
@@ -299,5 +274,4 @@ def reset_uploads(filetypes):
 
 if __name__ == "__main__":
     filetypes = ["documents", "images", "audios", "videos"]
-    search_terms = "changyi yang Berkeley California"
-    download_file(search_terms)
+
