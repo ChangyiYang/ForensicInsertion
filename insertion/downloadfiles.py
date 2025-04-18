@@ -187,7 +187,7 @@ def get_videos(driver, query, amount=3):
             ydl_opts = {
                 'format': 'worst',
                 'outtmpl': os.path.join(BASE_UPLOAD_DIR, '%(title)s.%(ext)s'),
-                'quiet': False,
+                'quiet': True,
                 'no_warnings': True,
             }
 
@@ -227,13 +227,13 @@ def download_file(query_dict):
             if not queries:
                 continue  # skip empty list
 
-            if category == "documents":
-                for query in queries:
-                    get_documents(driver, query)
-
-            elif category == "images":
-                for query in queries:
-                    get_images(driver, query)
+            # if category == "documents":
+            #     for query in queries:
+            #         get_documents(driver, query)
+            #
+            # elif category == "images":
+            #     for query in queries:
+            #         get_images(driver, query)
 
             # elif category == "audios":
             #     for query in queries:
