@@ -3,30 +3,62 @@ from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 import os
 import ast
+import json
 
-# Few-shot examples
-examples = [
+# --- Helper function ---
+def escape_braces(s: str) -> str:
+    """Escape curly braces to avoid format errors inside PromptTemplate."""
+    return s.replace("{", "{{").replace("}", "}}")
+
+def format_examples(examples_raw):
+    """Format few-shot examples: dict -> escaped string."""
+    formatted = []
+    for ex in examples_raw:
+        formatted.append({
+            "activity": ex["activity"],
+            "queries": escape_braces(json.dumps(ex["queries"], indent=2))
+        })
+    return formatted
+
+# --- Few-shot examples ---
+examples_raw = [
     {
         "activity": "I was reading about climate change and polar bears",
-        "queries": '["effects of climate change", "polar bear habitat loss", "how melting ice affects arctic animals"]'
+        "queries": {
+            "documents": ["effects of climate change", "polar bear habitat loss"],
+            "images": ["polar bears on melting ice"],
+            "audios": ["climate change speech recordings"],
+            "videos": ["arctic wildlife documentary"]
+        }
     },
     {
         "activity": "I watched videos about different types of cats",
-        "queries": '["funny cat videos", "maine coon vs ragdoll", "top 10 cat breeds", "cat behavior explained"]'
+        "queries": {
+            "documents": ["cat breed characteristics"],
+            "images": ["cute cat pictures", "different cat breeds"],
+            "audios": ["cat purring sounds"],
+            "videos": ["top 10 cat videos"]
+        }
     },
     {
         "activity": "I was looking at cooking tutorials",
-        "queries": '["easy pasta recipes", "how to make fried rice", "best kitchen tools 2024"]'
+        "queries": {
+            "documents": ["pasta recipes", "how to make fried rice guide"],
+            "images": ["delicious pasta dishes"],
+            "audios": ["cooking sounds"],
+            "videos": ["fried rice tutorial"]
+        }
     }
 ]
 
-# Format for examples
+examples = format_examples(examples_raw)
+
+# --- Prompt template ---
 example_prompt = PromptTemplate(
     input_variables=["activity", "queries"],
     template="User activity: {activity}\nOutput: {queries}\n"
 )
 
-# Few-shot prompt
 search_query_prompt = FewShotPromptTemplate(
     examples=examples,
     example_prompt=example_prompt,
@@ -34,33 +66,35 @@ search_query_prompt = FewShotPromptTemplate(
         "You are an assistant that generates realistic and helpful human search queries "
         "based on what a user says they were doing.\n"
         "Do NOT just repeat the activity.\n"
-        "Generate natural, creative, and diverse search engine queries.\n"
-        "Only return a Python list of strings. No extra explanation.\n\n"
+        "Organize the queries into 4 types: documents, images, audios, and videos.\n"
+        "Return a Python dictionary where each key ('documents', 'images', 'audios', 'videos') "
+        "maps to a list of relevant search queries.\n"
+        "Only output the Python dictionary. No extra explanation. DO not add markdown syntax around it, just return plain text.\n\n"
     ),
     suffix="User activity: {activity}\nOutput:",
     input_variables=["activity"]
 )
 
-# Initialize LLM
+# --- LLM model ---
 load_dotenv()
 llm = ChatOpenAI(model_name="gpt-4o", openai_api_key=os.getenv("OPENAI_API_KEY"))
 
-# New chain syntax (no LLMChain!)
 search_query_chain = search_query_prompt | llm
 
-def generate_search_queries(activity: str) -> list:
-    """Generate a list of search queries from a user activity description."""
+# --- Final function ---
+def generate_search_queries(activity: str) -> dict:
+    """Generate a dictionary of search queries from a user activity description."""
     response = search_query_chain.invoke({"activity": activity})
     try:
         queries = ast.literal_eval(response.content)
-        if isinstance(queries, list):
+        if isinstance(queries, dict):
             return queries
         else:
-            raise ValueError("Model output is not a list.")
+            raise ValueError("Model output is not a dictionary.")
     except Exception as e:
         raise ValueError(f"Failed to parse model output: {e}")
 
-# Example usage
+# --- Example usage ---
 if __name__ == "__main__":
     activity = "I want to recreate my activity where I read cat-related articles and watched funny cat videos at April 12, 2024"
     queries = generate_search_queries(activity)

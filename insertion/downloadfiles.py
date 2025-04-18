@@ -19,7 +19,7 @@ BASE_UPLOAD_DIR = "./to_upload"
 download_records = []
 
 
-def extract_filename(url, file_type):
+def extract_filename(url, file_type, base_filename = None):
     # Valid image extensions
     image_exts = {
         "jpg", "jpeg", "png", "gif", "bmp", "webp", "tiff", "tif", "svg", "ico", "heic", "psd", "raw"
@@ -43,7 +43,7 @@ def extract_filename(url, file_type):
     if file_type not in extract_filename.counter:
         extract_filename.counter[file_type] = 1
 
-    fallback = f"{file_type}_{extract_filename.counter[file_type]}"
+    fallback = f"{base_filename}_{extract_filename.counter[file_type]}"
     if file_type == "image":
         fallback+= ".jpg"
     extract_filename.counter[file_type] += 1
@@ -97,7 +97,7 @@ def get_documents(driver, query, amount=3):
 
     count = 0
     for url in documents:
-        name = extract_filename(url, "document")
+        name = extract_filename(url, "document", query)
         filenames.append(name)
         path = os.path.join(BASE_UPLOAD_DIR, "documents", name)
         if download_from_url(url, path):
@@ -108,6 +108,7 @@ def get_documents(driver, query, amount=3):
     return documents, filenames
 
 def get_images(driver, query, amount=3):
+    origin_query = query
     query = f"https://duckduckgo.com/?q={quote(query)}&t=h_&iax=images&ia=images"
     print("Searching for images with query:", query)
     driver.get(query)
@@ -132,14 +133,14 @@ def get_images(driver, query, amount=3):
             else:
                 images.append(src)  # fallback
 
-    print("Got image urls:", images)
+    # print("Got image urls:", images)
 
     random.shuffle(images)
     images = images[:amount]
 
     count = 0
     for url in images:
-        name = extract_filename(url, "image")
+        name = extract_filename(url, "image", origin_query)
         filenames.append(name)
         path = os.path.join(BASE_UPLOAD_DIR, "images", name)
         if download_from_url(url, path):
@@ -242,25 +243,40 @@ def get_videos(driver, query, amount=2):
 
     return urls, filenames
 
-def download_file(query):
+def download_file(query_dict):
     driver = initialize_browser()
     download_records.clear()
-    print(f"Searching for: {query}")
 
     try:
-        pool = [
-            # get_documents(driver, query),
-            get_images(driver, query)
-            # get_audio(query),
-            # get_videos(driver, query)
-        ]
+        for category, queries in query_dict.items():
+            if not queries:
+                continue  # skip empty list
+
+            if category == "documents":
+                for query in queries:
+                    get_documents(driver, query)
+
+            elif category == "images":
+                for query in queries:
+                    get_images(driver, query)
+
+            elif category == "audios":
+                for query in queries:
+                    get_audio(query)
+
+            elif category == "videos":
+                for query in queries:
+                    get_videos(driver, query)
+
+            else:
+                print(f"Unknown category: {category}")
 
     finally:
         driver.quit()
         print("All downloads completed.")
 
-    # print("Download records",  download_records)
     return download_records
+
 
 def initialize_browser():
     options = webdriver.ChromeOptions()

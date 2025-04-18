@@ -5,3 +5,4 @@ project/
 *.pyc
 __pycache__/
 .env
+/to_upload/

@@ -42,9 +42,7 @@ def main():
 
     # Step 3: Download files for each query
     print("Downloading files...")
-    download_record = []
-    for query in search_queries:
-        download_record.extend(download_file(query))
+    download_record = download_file(search_queries)
 
     if not download_record:
         print("No files downloaded. Exiting.")
