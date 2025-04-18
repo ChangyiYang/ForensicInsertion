@@ -213,7 +213,7 @@ def get_videos_and_audio(driver, query, amount=3):
         if url and "youtube.com/watch" in url:
             pool.append(url)
 
-    video_urls, audio_urls = split_list(pool[:10])
+    video_urls, audio_urls = split_list(pool[:3])
 
     for url in audio_urls:
         download_youtube(url, "audio")
