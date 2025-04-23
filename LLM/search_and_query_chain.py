@@ -67,7 +67,8 @@ search_query_prompt = FewShotPromptTemplate(
         "based on what a user says they were doing.\n"
         "Do NOT just repeat the activity.\n"
         "Organize the queries into 4 types: documents, images, audios, and videos.\n"
-        "Return a Python dictionary where each key ('documents', 'images', 'audios', 'videos') "
+        "Return a Python dictionary where each key ('documents', 'images', 'audios', 'videos') \n"
+        "For audio and video categories, only generate one keyword\n"
         "maps to a list of relevant search queries.\n"
         "Only output the Python dictionary. No extra explanation. DO not add markdown syntax around it, just return plain text.\n\n"
     ),

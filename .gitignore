@@ -6,3 +6,4 @@ project/
 __pycache__/
 .env
 /to_upload/
+target_paths.txt

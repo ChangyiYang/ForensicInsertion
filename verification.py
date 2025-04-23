@@ -55,7 +55,9 @@ def compute_sha256(file_path):
     return hasher.hexdigest()
 
 def verify_files(image_path, filelist_path, password):
-    mount_dir = tempfile.mkdtemp()
+    mount_dir = "/mnt/verify"
+    if not os.path.exists(mount_dir):
+        os.makedirs(mount_dir)
     results = []
 
     try:

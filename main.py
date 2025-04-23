@@ -68,12 +68,29 @@ def main():
             print(f"  - Local: {op['local_path']} -> Target: {op['target_path']}")
             print(f"    Access time: {op['access_time']}, Modified time: {op['modified_time']}")
 
-    # Step 5: Insert files into the disk image
-    image_file = input("Enter the path to the Linux .dd image: ").strip()
+    target_paths_file = "./target_paths.txt"
+    with open(target_paths_file, "w") as f:
+        for op in file_operations:
+            f.write(op["target_path"] + "\n")
+    if verbose:
+        print(f"All target paths have been saved to {target_paths_file}")
 
-    if not os.path.exists(image_file):
-        print(f"Error: {image_file} does not exist.")
-        return
+
+    # Step 5: Insert files into the disk image
+    max_retries = 3
+    for attempt in range(max_retries):
+        image_file = input("Enter the path to the Linux .dd image: ").strip()
+        
+        if os.path.exists(image_file):
+            break  
+        else:
+            print(f"Error: {image_file} does not exist.")
+            if attempt < max_retries - 1:
+                print("Please try again.")
+            else:
+                print("Max retries exceeded. Exiting.")
+                return
+
 
     insert_files_into_dd(image_file, file_operations)
 

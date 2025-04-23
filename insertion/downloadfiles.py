@@ -12,7 +12,8 @@ from selenium.webdriver.support import expected_conditions as EC
 from bs4 import BeautifulSoup
 import yt_dlp
 import tempfile
-from youtube_downloader import download_youtube
+import yt_dlp
+import os
 
 # Base upload directory
 BASE_UPLOAD_DIR = "./to_upload"
@@ -52,12 +53,12 @@ def extract_filename(url, file_type, base_filename=None):
 
 
 def split_list(elements):
-    # Calculate the split point (2/3 of the list)
-    split_point = int(len(elements) * 2 / 3)
+    # Calculate the split point (1/2 of the list)
+    split_point = int(len(elements) / 2)
 
     # Split the list
-    videos = elements[:split_point]  # First 2/3
-    audio = elements[split_point:]  # Remaining 1/3
+    videos = elements[:split_point]  # First 1/2
+    audio = elements[split_point:]  # Remaining 1/2
 
     return videos, audio
 
@@ -120,6 +121,47 @@ def get_documents(driver, query, amount=3):
 
     return documents, filenames
 
+def download_youtube(url, type='video'):
+    try:
+        if type == 'audios':
+            ydl_opts = {
+                'format': 'bestaudio/best',
+                'outtmpl': os.path.join(BASE_UPLOAD_DIR, '%(title)s.%(ext)s'),
+                'quiet': True,
+                'no_warnings': True,
+                'postprocessors': [],
+                'extractaudio': False,
+            }
+        else:  # video
+            ydl_opts = {
+                'format': 'worst[ext=mp4]/worst',  # Prefer worst mp4, fallback to worst available
+                'outtmpl': os.path.join(BASE_UPLOAD_DIR, '%(title)s.%(ext)s'),
+                'quiet': False,
+                'no_warnings': True,
+            }
+        
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(url, download=True)
+
+            # info["ext"] gives the real downloaded file extension, e.g., "webm", "mp4", etc.
+            real_ext = info.get("ext", "")
+            filename_without_ext = os.path.join(BASE_UPLOAD_DIR, info.get('title', 'unknown_title'))
+            real_path = f"{filename_without_ext}.{real_ext}"
+
+            if type == 'audios' and real_ext not in ('mp3', 'm4a'):
+                # Post-processing: manually rename to .mp3 if needed
+                target_path = filename_without_ext + ".mp3"
+                os.rename(real_path, target_path)
+                real_path = target_path
+
+            print(f"Downloaded: {os.path.basename(real_path)}")
+            download_records.append(real_path)
+            return real_path
+
+    except Exception as e:
+        print(f"Error downloading {url}: {e}")
+        return None
+
 
 def get_images(driver, query, amount=3):
     origin_query = query
@@ -181,7 +223,7 @@ def get_videos_and_audio(driver, query, amount=3):
         if url and "youtube.com/watch" in url:
             pool.append(url)
 
-    video_urls, audio_urls = split_list(pool[:3])
+    video_urls, audio_urls = split_list(pool[:2])
 
     for url in audio_urls:
         download_youtube(url, "audios")
@@ -202,25 +244,16 @@ def download_file(query_dict):
         for category, queries in query_dict.items():
             if not queries:
                 continue  # skip empty list
+            print(f"Downloading {category} with queries: {queries}")
+            if category == "documents":
+                for query in queries:
+                    get_documents(driver, query)
+            
+            elif category == "images":
+                for query in queries:
+                    get_images(driver, query)
 
-            # if category == "documents":
-            #     for query in queries:
-            #         get_documents(driver, query)
-            #
-            # elif category == "images":
-            #     for query in queries:
-            #         get_images(driver, query)
-
-<<<<<<< HEAD
-<<<<<<< HEAD
-
-            elif category == "videos" or category == "audios":
-=======
             elif category == "audios" or category == "videos":
->>>>>>> 365845fa738b443a558cefd36980fbc7636669ed
-=======
-            elif category == "audios" or category == "videos":
->>>>>>> 365845fa738b443a558cefd36980fbc7636669ed
                 for query in queries:
                     get_videos_and_audio(driver, query)
 
