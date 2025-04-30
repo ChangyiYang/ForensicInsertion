@@ -91,8 +91,15 @@ def main():
                 print("Max retries exceeded. Exiting.")
                 return
 
+    # Create a copy of the image
+    base_name, ext = os.path.splitext(image_file)
+    forged_image_file = f"{base_name}_forged{ext}"
+    print(f"Creating a copy of the image at: {forged_image_file}")
+    shutil.copyfile(image_file, forged_image_file)
 
-    insert_files_into_dd(image_file, file_operations)
+
+    # Insert into the copy
+    insert_files_into_dd(forged_image_file, file_operations)
 
     print("All operations completed successfully.")
 
